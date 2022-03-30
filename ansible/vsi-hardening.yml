@@ -1,5 +1,5 @@
 ---
-- hosts: localhost
+- hosts: root
   strategy: free
   become: true
   vars_files:
