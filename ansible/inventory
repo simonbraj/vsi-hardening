@@ -1,8 +1,8 @@
 [root]
-10.244.64.6
+128.168.132.245
 
 [all:vars]
 ansible_connection=ssh
-ansible_user=simon
-ansible_port=2850
-ansible_pass=~/.ssh/id_rsa.pem
+ansible_user=root
+ansible_port=22
+ansible_pass=~/.ssh/id_rsa
