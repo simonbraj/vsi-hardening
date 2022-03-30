@@ -1,0 +1,173 @@
+---
+- hosts: all
+  strategy: free
+  become: true
+  vars_files:
+    - cos_sat_users
+
+  handlers:
+    - name: restart ssh
+      service: name=sshd state=restarted
+    - name: restart firewalld
+      service: name=firewalld state=restarted
+  tasks:
+      - name: add user to sudo group >>>> TASK1
+        shell: |
+          useradd -m -d /home/"{{ item }}" -s /bin/bash "{{ item }}"
+          sleep 1
+          usermod -aG wheel "{{ item }}"
+        loop: "{{ cos_sat_users }}"
+      
+      - name: Add user to the sudoers >>>> TASK2 
+        copy:
+          dest: "/etc/sudoers.d/{{ item }}"
+          content: "{{ item }}  ALL=(ALL)  NOPASSWD: ALL"
+        loop: "{{ cos_sat_users }}"
+      
+      - name: Add .ssh directories >>>> TASK3
+        file:
+          path: /home/{{ item }}/.ssh
+          state: directory
+          mode: 0700
+          owner: "{{ item }}"
+          group: "{{ item|default(item)  }}"
+        loop: "{{ cos_sat_users }}"
+
+      - name: Add keys >>>> TASK4
+        lineinfile:
+          dest: /home/{{ item }}/.ssh/authorized_keys
+          state: present
+          create: yes
+          line: "{{ item }}"
+          owner: "{{ item }}"
+          group: "{{ item|default(item) }}"
+          mode: 0644 
+        loop: "{{ cos_sat_users }}"
+
+      - name: Add ssh keys folders with usernames >>>> TASK5
+        copy:
+          src: keys/{{ item }}/id_rsa.pub
+          dest: /home/{{ item }}/.ssh/authorized_keys
+          owner: "{{ item }}"
+          group: "{{ item|default(item) }}"
+          mode: 0600
+        loop: "{{ cos_sat_users }}"
+      
+      - name: create a neccessary paths to store the user pub keys >>>> TASK6
+        shell: |
+          chown -R {{ item }}:{{ item }} /home/{{ item }}/.ssh
+          chmod 700 /home/{{ item }}/.ssh
+          chmod 600 /home/{{ item }}/.ssh/authorized_keys
+        loop: "{{ cos_sat_users }}" 
+
+      - name: allow wheel users to sshd >>>> TASK7
+        shell: |
+          echo "AllowUsers {{ item }}" >> /etc/ssh/sshd_config
+        loop: "{{ cos_sat_users }}"
+
+     
+      - name: Allow sshd to listen on tcp port 2850.  >>>> TASK8
+        seport:
+          ports: 2850 ## can be any port of your choice
+          proto: tcp
+          setype: ssh_port_t
+          state: present
+        when: ansible_selinux.status == 'enabled'
+
+      - name:  Update SSH configuration to be more secure.  >>>> TASK9
+        lineinfile:
+          dest: /etc/ssh/sshd_config
+          regexp: "{{ item.regexp }}"
+          line: "{{ item.line }}"
+          state: present
+          validate: 'sshd -t -f %s'
+        with_items:
+          - regexp: "^PasswordAuthentication"
+            line: "PasswordAuthentication no"
+          - regexp: "^PermitRootLogin"
+            line: "PermitRootLogin no"
+          - regexp: "^Port"
+            line: "Port 2850"
+        notify: restart ssh
+
+      # Remove unused software, open only required ports.
+      - name: Remove unused packages.  >>>> TASK10
+        package:
+          name:
+            - nano
+            - sendmail
+          state: absent
+
+      # File permissions.
+      - name: Configure the permissions for the messages log.  >>>> TASK11
+        file:
+          path: /var/log/messages
+          owner: root
+          group: root
+          mode: 0600
+
+      # Automating updates for RHEL systems.
+      - name: Install dnf-automatic. >>>> TASK12
+        yum:
+          name: dnf-automatic
+          state: present
+
+      - name: Ensure dnf-automatic is running and enabled on boot. >>>> TASK12
+        service:
+          name: dnf-automatic-install.timer
+          state: started
+          enabled: yes
+
+      # Configuring a firewall with `firewalld` on RHEL.
+      - name: Ensure firewalld is running. >>>> TASK13
+        service:
+          name: firewalld
+          state: started
+
+      # Install Fail2ban 
+      - name: Install Fail2ban >>>> TASK14
+        shell: |
+          sudo yum -y install epel-release
+          sudo yum -y install fail2ban
+          sudo systemctl enable fail2ban
+
+      # Ensure httpd can connect to the network
+      - name: Ensure httpd can connect to the network. >>>> TASK15
+        seboolean:
+          name: httpd_can_network_connect
+          state: yes
+          persistent: yes
+        when: ansible_selinux.status == 'enabled'
+
+      # Install IBM Cloud CLI and Required Plugins
+      - name: Install IBM Cloud CLI and required plugins.  >>>> TASK16
+        shell: |
+          if ! [ -x "$(command -v ibmcloud)" ]; then
+            curl -fsSL https://clis.cloud.ibm.com/install/linux | sh
+            ibmcloud plugin install container-service
+            ibmcloud plugin install container-registry
+            ibmcloud plugin install observe-service
+          else
+            ibmcloud update -f
+            ibmcloud plugin update container-service -f
+            ibmcloud plugin update container-registry -f
+            ibmcloud plugin update observe-service -f
+          fi  
+
+      # Enable port 2850 and restart firewalld
+      - name: enable 2850
+        command: sudo firewall-cmd --add-port=2850/tcp --permanent
+      - name: remove ssh for default host permanent
+        command: sudo firewall-cmd --remove-service=ssh --permanent
+      - name: restarts firewall
+        command: systemctl restart firewalld
+      - name: Ensure  SSH is reloaded if needed
+        meta: flush_handlers
+
+      # Reboot the server
+      - name: Reboot the server >>>> TASK17
+        become: yes
+        shell: "sleep 1 && reboot"
+        async: 1
+        poll: 0
+        ignore_errors: "yes" 

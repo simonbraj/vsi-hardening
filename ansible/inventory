@@ -1,0 +1,8 @@
+[root]
+130.198.22.241 ##### Insert the VSI IP ###########
+
+[all:vars]
+ansible_connection=ssh
+ansible_user=simon
+ansible_port=2850
+ansible_pass=~/.ssh/id_rsa.pem
