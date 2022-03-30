@@ -1,4 +1,4 @@
-[root]
+[localhost]
 128.168.132.245
 
 [all:vars]
