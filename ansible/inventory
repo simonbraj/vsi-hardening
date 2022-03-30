@@ -1,5 +1,5 @@
 [root]
-130.198.22.241
+10.244.64.6
 
 [all:vars]
 ansible_connection=ssh
