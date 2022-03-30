@@ -1,6 +1,5 @@
 [test1]
-interpreter_python
-130.198.22.241 ##### Insert the VSI IP ###########
+host1 130.198.22.241
 
 [all:vars]
 ansible_connection=ssh
