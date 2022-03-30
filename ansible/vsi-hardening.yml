@@ -1,5 +1,5 @@
 ---
-- hosts: all
+- hosts: test1
   strategy: free
   become: true
   vars_files:
