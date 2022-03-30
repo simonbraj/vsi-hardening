@@ -1,5 +1,5 @@
 ---
-- hosts: 10.244.64.6
+- hosts: 128.168.132.245
   strategy: free
   become: true
   vars_files:
