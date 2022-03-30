@@ -1,5 +1,5 @@
-[test1]
-host1 130.198.22.241
+[root]
+130.198.22.241
 
 [all:vars]
 ansible_connection=ssh
