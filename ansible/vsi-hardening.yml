@@ -1,5 +1,5 @@
 ---
-- hosts: root
+- hosts: all
   strategy: free
   become: true
   vars_files:
