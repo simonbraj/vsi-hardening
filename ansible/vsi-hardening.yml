@@ -1,5 +1,5 @@
 ---
-- hosts: localhost
+- hosts: 128.168.132.245
   strategy: free
   become: true
   vars_files:
